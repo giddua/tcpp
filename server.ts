@@ -528,31 +528,45 @@ app.get('/api/auth/me', (req, res) => {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
 
-      const userEmail = userResponse.data.mail || userResponse.data.userPrincipalName;
-      const graphDisplayName = userResponse.data.displayName || userEmail;
+      // Microsoft Graph gives us two possible identifiers. In a hybrid AD/Entra
+      // setup these can differ: "mail" is the real corporate address, but if that
+      // attribute is not set on the account, Graph falls back to userPrincipalName,
+      // which may be the default *.onmicrosoft.com name rather than the corporate
+      // one stored in auth.Users. Try both against the database rather than
+      // assuming one is always correct.
+      const graphMail = userResponse.data.mail || '';
+      const graphUpn = userResponse.data.userPrincipalName || '';
+      const graphDisplayName = userResponse.data.displayName || graphMail || graphUpn;
+      let userEmail = graphMail || graphUpn;
       let securityClearance = false;
       let dbDisplayName = '';
       let dbJobTitle = '';
       let dbRole = 'User';
 
-      // 3. Check auth.Users table
+      // 3. Check auth.Users table against either identifier Graph gave us
       try {
         const pool = await getPool();
         const result = await pool.request()
-          .input('Email', sql.NVarChar, userEmail)
+          .input('Mail', sql.NVarChar, graphMail)
+          .input('Upn', sql.NVarChar, graphUpn)
           .query(`
             SELECT TOP 1 u.*, ur.RoleName
             FROM auth.[Users] u
             LEFT JOIN auth.[UserRoles] ur ON LOWER(u.Email) = LOWER(ur.Email)
-            WHERE LOWER(u.Email) = LOWER(@Email)
+            WHERE LOWER(u.Email) = LOWER(@Mail) OR LOWER(u.Email) = LOWER(@Upn)
           `);
 
         if (result.recordset.length > 0) {
           securityClearance = true;
           const row = result.recordset[0];
+          // Use the email on file in our own database as the canonical identity
+          // going forward, since that is what the rest of the app expects.
+          userEmail = row.Email || userEmail;
           dbDisplayName = row.DisplayName || graphDisplayName;
           dbJobTitle = row.JobTitle || 'User';
           dbRole = row.RoleName || 'User';
+        } else {
+          console.log(`[Entra] No auth.Users match for mail="${graphMail}" or userPrincipalName="${graphUpn}"`);
         }
         // do nothing, keep pool alive await pool.close();
       } catch (sqlErr: any) {
