@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 28.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+   viewBox="0 0 702.57 227.35" style="enable-background:new 0 0 702.57 227.35;" xml:space="preserve">
+<style type="text/css">
+  .st0{fill:url(#SVGID_1_);}
+</style>
+<!-- Text paths with fill="#003461" added below -->
+<path fill="#003461" d="M190.07,74.92c22.91,0,39.99,15.95,39.99,38.75s-17.07,38.75-39.99,38.75s-40.1-15.95-40.1-38.75S167.15,74.92,190.07,74.92
+  z M190.07,91.99c-12.47,0-20.44,9.43-20.44,21.68c0,12.13,7.97,21.68,20.44,21.68c12.36,0,20.33-9.55,20.33-21.68
+  C210.4,101.43,202.42,91.99,190.07,91.99z"/>
+<path fill="#003461" d="M236.47,151.08V76.16h19.32v58.07h30.1v16.85H236.47z"/>
+<path fill="#003461" d="M292.53,151.08V76.16h19.32v58.07h30.1v16.85H292.53z"/>
+<path fill="#003461" d="M390.37,151.08l-12.58-25.39h-9.88v25.39h-19.32V76.16h37.52c16.62,0,26.06,11.01,26.06,24.93
+  c0,13.03-7.98,19.99-14.94,22.47l15.27,27.52H390.37z M383.18,92.44h-15.28v16.85h15.28c5.05,0,9.32-3.26,9.32-8.42
+  S388.24,92.44,383.18,92.44z"/>
+<path fill="#003461" d="M476.89,151.08l-3.82-11.35h-31.11l-3.82,11.35h-21.01l28.19-74.92h24.26l28.3,74.92H476.89z M457.46,93l-10.45,30.44h21.01
+  L457.46,93z"/>
+<path fill="#003461" d="M509.81,151.08V93h-21V76.16h61.21V93h-20.89v58.07H509.81z"/>
+<path fill="#003461" d="M606.31,151.08v-30.1H575.2v30.1h-19.32V76.16h19.32v27.97h31.11V76.16h19.32v74.92H606.31z"/>
+<polygon fill="#003461" points="125.11,151.08 105.79,151.08 134.57,76.16 153.88,76.16 "/>
+<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="75.1867" y1="89.3259" x2="104.9594" y2="100.7546">
+  <stop  offset="0" style="stop-color:#58595B"/>
+  <stop  offset="0.0401" style="stop-color:#67686B"/>
+  <stop  offset="0.1582" style="stop-color:#8B8D90"/>
+  <stop  offset="0.2704" style="stop-color:#A8ABAD"/>
+  <stop  offset="0.3738" style="stop-color:#BFC1C3"/>
+  <stop  offset="0.4652" style="stop-color:#CCCED0"/>
+  <stop  offset="0.5351" style="stop-color:#D1D3D4"/>
+  <stop  offset="0.6101" style="stop-color:#C2C4C6"/>
+  <stop  offset="0.7616" style="stop-color:#9B9DA0"/>
+  <stop  offset="0.9739" style="stop-color:#616264"/>
+  <stop  offset="1" style="stop-color:#58595B"/>
+</linearGradient>
+<polygon class="st0" points="115.1,76.15 96.02,125.82 76.94,76.15 "/>
+<path d="M96.25,76.16"/>
+<g>
+  <!-- Registered trademark (®) symbol path -->
+  <path fill="#003461" d="M631.49,80.36c0-2.34,1.89-4.21,4.21-4.21c2.34,0,4.21,1.87,4.21,4.21c0,2.32-1.86,4.21-4.21,4.21
+    C633.37,84.57,631.49,82.68,631.49,80.36z M632.04,80.36c0,2,1.63,3.65,3.65,3.65c2,0,3.63-1.65,3.63-3.65
+    c0-2.02-1.63-3.63-3.63-3.63C633.67,76.73,632.04,78.34,632.04,80.36z M636.85,82.78l-1.25-1.9h-0.87v1.9h-0.63v-4.82h1.96
+    c0.83,0,1.53,0.58,1.53,1.47c0,1.07-0.95,1.43-1.23,1.43l1.29,1.92H636.85z M634.72,78.52v1.79h1.33c0.5,0,0.87-0.38,0.87-0.87
+    c0-0.54-0.38-0.91-0.87-0.91H634.72z"/>
+</g>
+</svg>
