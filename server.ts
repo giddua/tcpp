@@ -536,37 +536,26 @@ app.get('/api/auth/me', (req, res) => {
       // assuming one is always correct.
       const graphMail = userResponse.data.mail || '';
       const graphUpn = userResponse.data.userPrincipalName || '';
-      // Vollrath's default Entra sign-in name for some accounts is
-      // <name>@vollrathco.onmicrosoft.com rather than the real <name>@vollrathco.com
-      // address, when the "mail" attribute is not set on the on-prem account. Derive
-      // the corporate-domain equivalent so we have a third candidate to check.
-      const ONMICROSOFT_SUFFIX = '.onmicrosoft.com';
-      let derivedCorporateEmail = '';
-      if (graphUpn.toLowerCase().endsWith(ONMICROSOFT_SUFFIX)) {
-        const localPart = graphUpn.split('@')[0];
-        derivedCorporateEmail = `${localPart}@vollrathco.com`;
-      }
       const graphDisplayName = userResponse.data.displayName || graphMail || graphUpn;
-      let userEmail = graphMail || derivedCorporateEmail || graphUpn;
+      let userEmail = graphMail || graphUpn;
       let securityClearance = false;
       let dbDisplayName = '';
       let dbJobTitle = '';
       let dbRole = 'User';
 
-      // 3. Check auth.Users table against every identifier we have for this sign-in
+      // 3. Check auth.Users table against either identifier Graph gave us.
+      // In a hybrid AD/Entra setup, "mail" and "userPrincipalName" can differ, so
+      // check both rather than assuming one is always the right one.
       try {
         const pool = await getPool();
         const result = await pool.request()
           .input('Mail', sql.NVarChar, graphMail)
           .input('Upn', sql.NVarChar, graphUpn)
-          .input('Derived', sql.NVarChar, derivedCorporateEmail)
           .query(`
             SELECT TOP 1 u.*, ur.RoleName
             FROM auth.[Users] u
             LEFT JOIN auth.[UserRoles] ur ON LOWER(u.Email) = LOWER(ur.Email)
-            WHERE LOWER(u.Email) = LOWER(@Mail)
-               OR LOWER(u.Email) = LOWER(@Upn)
-               OR LOWER(u.Email) = LOWER(@Derived)
+            WHERE LOWER(u.Email) = LOWER(@Mail) OR LOWER(u.Email) = LOWER(@Upn)
           `);
 
         if (result.recordset.length > 0) {
@@ -579,7 +568,7 @@ app.get('/api/auth/me', (req, res) => {
           dbJobTitle = row.JobTitle || 'User';
           dbRole = row.RoleName || 'User';
         } else {
-          console.log(`[Entra] No auth.Users match for mail="${graphMail}", userPrincipalName="${graphUpn}", derived="${derivedCorporateEmail}"`);
+          console.log(`[Entra] No auth.Users match for mail="${graphMail}" or userPrincipalName="${graphUpn}"`);
         }
         // do nothing, keep pool alive await pool.close();
       } catch (sqlErr: any) {
