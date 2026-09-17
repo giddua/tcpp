@@ -529,43 +529,106 @@ app.get('/api/auth/me', (req, res) => {
       });
 
       const userEmail = userResponse.data.mail || userResponse.data.userPrincipalName;
+      const graphDisplayName = userResponse.data.displayName || userEmail;
       let securityClearance = false;
+      let dbDisplayName = '';
+      let dbJobTitle = '';
+      let dbRole = 'User';
 
       // 3. Check auth.Users table
       try {
-        const serverRaw = (secrets.SQL_SERVER_SERVER || '').trim();
-        const [hostSql, instance] = serverRaw.split('\\');
-
         const pool = await getPool();
         const result = await pool.request()
           .input('Email', sql.NVarChar, userEmail)
           .query(`
-            SELECT TOP 1 u.*, ur.RoleName 
+            SELECT TOP 1 u.*, ur.RoleName
             FROM auth.[Users] u
             LEFT JOIN auth.[UserRoles] ur ON LOWER(u.Email) = LOWER(ur.Email)
             WHERE LOWER(u.Email) = LOWER(@Email)
           `);
-        
+
         if (result.recordset.length > 0) {
           securityClearance = true;
-          // We could also store/pass the role here if needed
+          const row = result.recordset[0];
+          dbDisplayName = row.DisplayName || graphDisplayName;
+          dbJobTitle = row.JobTitle || 'User';
+          dbRole = row.RoleName || 'User';
         }
         // do nothing, keep pool alive await pool.close();
       } catch (sqlErr: any) {
         console.error('Security clearance check failed:', sqlErr.message);
-        // We'll still allow the app to finish the OAuth flow, but clearance will be false
+        // Treat as not cleared if the lookup itself fails, rather than guessing.
       }
+
+      if (!securityClearance) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({
+                    type: 'MICROSOFT_AUTH_RESULT',
+                    success: false,
+                    error: 'Your account (${userEmail}) is not authorized for TCPP access. Contact your administrator.'
+                  }, '*');
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              </script>
+              <p>Not authorized. You can close this window.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      const jwtSecret = getJwtSecret();
+      if (!jwtSecret) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({
+                    type: 'MICROSOFT_AUTH_RESULT',
+                    success: false,
+                    error: 'Server is missing JWT_PHRASE configuration.'
+                  }, '*');
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              </script>
+              <p>Server configuration error. You can close this window.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      const token = jwt.sign(
+        {
+          email: userEmail,
+          displayName: dbDisplayName,
+          jobTitle: dbJobTitle,
+          role: dbRole,
+        },
+        jwtSecret,
+        { expiresIn: '24h' }
+      );
 
       res.send(`
         <html>
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ 
-                  type: 'MICROSOFT_AUTH_RESULT', 
-                  success: true, 
-                  securityClearance: ${securityClearance},
-                  message: 'Authenticated as ${userEmail}'
+                window.opener.postMessage({
+                  type: 'MICROSOFT_AUTH_RESULT',
+                  success: true,
+                  token: ${JSON.stringify(token)},
+                  displayName: ${JSON.stringify(dbDisplayName)},
+                  email: ${JSON.stringify(userEmail)},
+                  jobTitle: ${JSON.stringify(dbJobTitle)},
+                  role: ${JSON.stringify(dbRole)}
                 }, '*');
                 window.close();
               } else {

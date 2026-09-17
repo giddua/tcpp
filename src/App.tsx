@@ -17,7 +17,7 @@ import NonUSRebateCriteria from './components/NonUSRebateCriteria';
 import Help from './components/Help';
 import CustomerTCPPQualifiers from './components/CustomerTCPPQualifiers';
 import Customers from './components/Customers';
-import DummyLogin from './components/DummyLogin';
+import MicrosoftLogin from './components/MicrosoftLogin';
 import SecretsManager from './components/SecretsManager';
 import QuarterlyReports from './components/QuarterlyReports';
 import QuarterlyReportsByGroup from './components/QuarterlyReportsByGroup';
@@ -158,7 +158,7 @@ export default function App() {
       case 'update-group-master':
         return <UpdateGroupMaster />;
       case 'dummy-login':
-        return <DummyLogin onLoginSuccess={handleLoginSuccess} />;
+        return <MicrosoftLogin onLoginSuccess={handleLoginSuccess} />;
       default:
         return <RebateParameters />;
     }
@@ -187,7 +187,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <div className="bg-[#f7f9fc] flex min-h-screen items-center justify-center p-4">
-        <DummyLogin onLoginSuccess={handleLoginSuccess} />
+        <MicrosoftLogin onLoginSuccess={handleLoginSuccess} />
       </div>
     );
   }
