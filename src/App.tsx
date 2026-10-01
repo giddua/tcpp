@@ -18,6 +18,7 @@ import Help from './components/Help';
 import CustomerTCPPQualifiers from './components/CustomerTCPPQualifiers';
 import Customers from './components/Customers';
 import MicrosoftLogin from './components/MicrosoftLogin';
+import CustomerRebateBulkUpload from './components/CustomerRebateBulkUpload';
 import SecretsManager from './components/SecretsManager';
 import QuarterlyReports from './components/QuarterlyReports';
 import QuarterlyReportsByGroup from './components/QuarterlyReportsByGroup';
@@ -157,6 +158,8 @@ export default function App() {
         return <UpdateCustomerMaster />;
       case 'update-group-master':
         return <UpdateGroupMaster />;
+      case 'customer-rebate-bulk-upload':
+        return <CustomerRebateBulkUpload />;
       case 'dummy-login':
         return <MicrosoftLogin onLoginSuccess={handleLoginSuccess} />;
       default:

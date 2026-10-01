@@ -28,7 +28,8 @@ export default function Sidebar({ activeTab, setActiveTab, userRole }: SidebarPr
       { id: 'quarterly-reports', label: 'Quarterly Reports By Customer' },
       { id: 'quarterly-reports-by-group', label: 'Quarterly Reports by Group' },
       { id: 'quarterly-reports-all-groups', label: 'Quarterly Reports - All Groups' },
-      { id: 'finance-reports', label: 'Finance Reports' }
+      { id: 'finance-reports', label: 'Finance Reports' },
+      { id: 'customer-rebate-bulk-upload', label: 'Customer Rebate Bulk Upload' }
     ]},
     { id: 'rebate-parameters', label: 'Marketing Section', icon: Settings, subItems: [
       { id: 'global-rebates', label: 'Global Rebates' },

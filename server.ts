@@ -12,6 +12,8 @@ import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
 // @ts-ignore
 import XlsxPopulate from 'xlsx-populate';
+import ExcelJS from 'exceljs';
+import multer from 'multer';
 import { getSecrets, getJwtSecret, SECRETS_FILE } from './secrets.js';
 
 // ================= EMAIL (SMTP - Gmail) =================
@@ -70,6 +72,9 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json());
+
+  // In-memory storage only — the uploaded spreadsheet is parsed and discarded, never written to disk.
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
   // JWT Authentication Middleware to prevent client spoofing
   const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -1043,6 +1048,177 @@ app.get('/api/auth/me', (req, res) => {
     } catch (error: any) {
       console.error('SQL Server error (DELETE /api/customers):', error.message);
       res.status(500).json({ error: 'Failed to delete customer', details: error.message });
+    }
+  });
+
+  // ================= Customer Rebate Bulk Upload =================
+  // Upserts tcpp.CustomerRebate for many customers at once from a spreadsheet (e.g. Finance's
+  // TieredRebatePercent.xlsx, "COMBINED" sheet). Column A = CustomerID, E = SpecificRebateCode,
+  // G = TierOverride, H = RebatePercent (stored in the sheet as a fraction, e.g. 0.05 for 5%).
+  app.post('/api/customer-rebates/bulk-upload', upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded.' });
+      }
+
+      const programYearRaw = (req.body?.ProgramYear || '').toString().trim();
+      const programYear = parseInt(programYearRaw, 10);
+      if (isNaN(programYear)) {
+        return res.status(400).json({ error: 'A valid Program Year is required.' });
+      }
+
+      const userName = req.headers['x-user-name'] || 'None';
+      const userEmail = req.headers['x-user-email'] || 'None';
+      const combinedUser = userName !== 'None' && userEmail !== 'None' ? `${userName} (${userEmail})` : (userName !== 'None' ? userName : userEmail);
+      const now = new Date();
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(req.file.buffer);
+      const worksheet = workbook.getWorksheet('COMBINED');
+
+      if (!worksheet) {
+        return res.status(400).json({ error: 'The uploaded file does not contain a sheet named "COMBINED".' });
+      }
+
+      const pool = await getPool();
+
+      // ref.CustomerTiers is the foreign-key target for TierOverride — load valid values once.
+      const tiersResult = await pool.request().query('SELECT CustomerTiers FROM ref.[CustomerTiers]');
+      const validTiers = new Set(
+        (tiersResult.recordset as any[]).map(r => String(r.CustomerTiers).trim().toUpperCase())
+      );
+
+      // tcpp.Customer is the parent table for tcpp.CustomerRebate — load existing IDs once.
+      const customersResult = await pool.request().query('SELECT CustomerId FROM tcpp.[Customer]');
+      const existingCustomerIds = new Set((customersResult.recordset as any[]).map(r => r.CustomerId));
+
+      // Existing CustomerRebate rows for this Program Year, to decide insert vs. update per row.
+      const existingRebatesResult = await pool.request()
+        .input('ProgramYear', sql.Int, programYear)
+        .query('SELECT SS_ID, CustomerId FROM tcpp.[CustomerRebate] WHERE ProgramYear = @ProgramYear');
+      const existingRebateByCustomerId = new Map<number, number>();
+      for (const row of existingRebatesResult.recordset as any[]) {
+        existingRebateByCustomerId.set(row.CustomerId, row.SS_ID);
+      }
+
+      type SkippedRow = { row: number; customerId: string; reason: string };
+      const skipped: SkippedRow[] = [];
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+
+      try {
+        const rowCount = worksheet.rowCount;
+        for (let rowNumber = 2; rowNumber <= rowCount; rowNumber++) {
+          const excelRow = worksheet.getRow(rowNumber);
+
+          const customerIdCell = excelRow.getCell(1).value;         // Column A
+          const specificRebateCodeCell = excelRow.getCell(5).value; // Column E
+          const tierCell = excelRow.getCell(7).value;               // Column G
+          const rebatePercentCell = excelRow.getCell(8).value;      // Column H
+
+          const customerIdRaw = (customerIdCell === null || customerIdCell === undefined)
+            ? '' : String(customerIdCell).trim();
+
+          // Skip entirely blank trailing rows.
+          if (customerIdRaw === '' && (rebatePercentCell === null || rebatePercentCell === undefined)) {
+            continue;
+          }
+
+          const customerId = parseInt(customerIdRaw, 10);
+          if (isNaN(customerId)) {
+            skipped.push({ row: rowNumber, customerId: customerIdRaw || '(blank)', reason: 'Invalid or missing CustomerID' });
+            continue;
+          }
+
+          if (!existingCustomerIds.has(customerId)) {
+            skipped.push({ row: rowNumber, customerId: String(customerId), reason: 'Customer not found in tcpp.Customer. Create the customer in TCPP first.' });
+            continue;
+          }
+
+          const tierRaw = (tierCell === null || tierCell === undefined) ? '' : String(tierCell).trim();
+          const tierOverride = tierRaw === '' ? 'NONE' : tierRaw.toUpperCase();
+
+          if (!validTiers.has(tierOverride)) {
+            skipped.push({ row: rowNumber, customerId: String(customerId), reason: `Invalid Tier value "${tierOverride}" — does not match ref.CustomerTiers.` });
+            continue;
+          }
+
+          const specificRebateCode = (specificRebateCodeCell === null || specificRebateCodeCell === undefined)
+            ? null
+            : (String(specificRebateCodeCell).trim() || null);
+
+          const rebatePercentFraction = (rebatePercentCell === null || rebatePercentCell === undefined)
+            ? null
+            : parseFloat(String(rebatePercentCell).trim());
+
+          // Spreadsheet stores RebatePercent as a fraction (0.05 = 5%); TCPP stores whole-number percent.
+          const rebatePercent = (rebatePercentFraction === null || isNaN(rebatePercentFraction))
+            ? null
+            : Math.round(rebatePercentFraction * 10000) / 100;
+
+          const existingSsId = existingRebateByCustomerId.get(customerId);
+
+          if (existingSsId) {
+            await new sql.Request(transaction)
+              .input('SS_ID', sql.Int, existingSsId)
+              .input('SpecificRebateCode', sql.NVarChar(5), specificRebateCode)
+              .input('RebatePercent', sql.Decimal(5, 2), rebatePercent)
+              .input('TierOverride', sql.NVarChar(16), tierOverride)
+              .input('ModifiedBy', sql.NVarChar(50), combinedUser)
+              .input('ModifiedDate', sql.DateTime2, now)
+              .query(`
+                UPDATE tcpp.[CustomerRebate]
+                SET SpecificRebateCode = @SpecificRebateCode,
+                    RebatePercent = @RebatePercent,
+                    TierOverride = @TierOverride,
+                    ModifiedBy = @ModifiedBy,
+                    ModifiedDate = @ModifiedDate
+                WHERE SS_ID = @SS_ID
+              `);
+            updatedCount++;
+          } else {
+            await new sql.Request(transaction)
+              .input('CustomerId', sql.Int, customerId)
+              .input('SpecificRebateCode', sql.NVarChar(5), specificRebateCode)
+              .input('RebatePercent', sql.Decimal(5, 2), rebatePercent)
+              .input('TierOverride', sql.NVarChar(16), tierOverride)
+              .input('ProgramYear', sql.Int, programYear)
+              .input('CreatedBy', sql.NVarChar(50), combinedUser)
+              .input('CreatedDate', sql.DateTime2, now)
+              .input('ModifiedBy', sql.NVarChar(50), combinedUser)
+              .input('ModifiedDate', sql.DateTime2, now)
+              .query(`
+                INSERT INTO tcpp.[CustomerRebate] (
+                  CustomerId, SpecificRebateCode, RebatePercent, TierOverride,
+                  ProgramYear, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate
+                )
+                VALUES (
+                  @CustomerId, @SpecificRebateCode, @RebatePercent, @TierOverride,
+                  @ProgramYear, @CreatedBy, @CreatedDate, @ModifiedBy, @ModifiedDate
+                )
+              `);
+            insertedCount++;
+          }
+        }
+
+        await transaction.commit();
+      } catch (err: any) {
+        await transaction.rollback();
+        throw err;
+      }
+
+      res.json({
+        message: `Bulk upload complete. ${insertedCount} inserted, ${updatedCount} updated, ${skipped.length} skipped.`,
+        inserted: insertedCount,
+        updated: updatedCount,
+        skipped,
+      });
+    } catch (error: any) {
+      console.error('SQL Server error (POST /api/customer-rebates/bulk-upload):', error.message);
+      res.status(500).json({ error: 'Failed to process bulk upload', details: error.message });
     }
   });
 
