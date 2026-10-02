@@ -95,8 +95,8 @@ export default function CustomerRebateBulkUpload() {
   return (
     <div className="p-8 max-w-3xl mx-auto w-full">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-[#191c1e] flex items-center">
-          <FileSpreadsheet className="w-6 h-6 mr-2 text-[#003461]" />
+        <h2 className="text-3xl font-extrabold tracking-tight text-[#003461] dark:text-blue-400 flex items-center">
+          <FileSpreadsheet className="w-7 h-7 mr-3 text-[#003461]" />
           Customer Rebate Bulk Upload
         </h2>
         <p className="text-sm text-slate-500 mt-1">
@@ -105,10 +105,18 @@ export default function CustomerRebateBulkUpload() {
           Column A is Customer ID, column E is Specific Rebate Code, column G is Tier, and column H is Rebate
           Percent.
         </p>
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2 flex items-start space-x-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-none" />
+          <span>
+            Customer ID must be unique in the spreadsheet. If the same Customer ID appears on more than one row,
+            only the first occurrence is applied, and every later row for that Customer ID is skipped and listed
+            below as a duplicate.
+          </span>
+        </p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
-        <div className="space-y-1">
+        <div className="space-y-2">
           <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
             Program Year
           </label>

@@ -1106,6 +1106,12 @@ app.get('/api/auth/me', (req, res) => {
       let insertedCount = 0;
       let updatedCount = 0;
 
+      // CustomerID must be unique within the uploaded file for a given upload — the first valid
+      // occurrence is applied, any later row for the same CustomerID is skipped and reported,
+      // rather than being allowed to hit the CustomerId+ProgramYear unique constraint and fail
+      // the whole batch.
+      const appliedRowByCustomerId = new Map<number, number>();
+
       const transaction = new sql.Transaction(pool);
       await transaction.begin();
 
@@ -1158,6 +1164,17 @@ app.get('/api/auth/me', (req, res) => {
           const rebatePercent = (rebatePercentFraction === null || isNaN(rebatePercentFraction))
             ? null
             : Math.round(rebatePercentFraction * 10000) / 100;
+
+          const firstAppliedRow = appliedRowByCustomerId.get(customerId);
+          if (firstAppliedRow !== undefined) {
+            skipped.push({
+              row: rowNumber,
+              customerId: String(customerId),
+              reason: `Duplicate CustomerID in this file. Row ${firstAppliedRow} was already applied for this customer and Program Year; this row was skipped.`,
+            });
+            continue;
+          }
+          appliedRowByCustomerId.set(customerId, rowNumber);
 
           const existingSsId = existingRebateByCustomerId.get(customerId);
 
