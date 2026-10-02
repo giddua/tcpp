@@ -117,7 +117,7 @@ export default function CustomerRebateBulkUpload() {
 
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
         <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">
             Program Year
           </label>
           <input
@@ -131,7 +131,7 @@ export default function CustomerRebateBulkUpload() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">
             Spreadsheet (.xlsx)
           </label>
           <input
