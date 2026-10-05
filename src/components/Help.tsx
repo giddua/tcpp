@@ -26,7 +26,8 @@ export default function Help() {
         'Quarterly Reports By Customer: Generate and download quarterly rebate calculations and customer summaries report.',
         'Quarterly Reports by Group: Generate and download quarterly rebate calculations report aggregated by group.',
         'Quarterly Reports - All Groups: Generate and download quarterly rebate calculations report for all groups.',
-        'Finance Reports: Generate and download customer level purchase details and rebate accruals report.'
+        'Finance Reports: Generate and download customer level purchase details and rebate accruals report.',
+        'Customer Rebate Bulk Upload: Upload a spreadsheet to update Tier and Rebate Percent for many customers at once for a chosen Program Year.'
       ]
     },
     {
